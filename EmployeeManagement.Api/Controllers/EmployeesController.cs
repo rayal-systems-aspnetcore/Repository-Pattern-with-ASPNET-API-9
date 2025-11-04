@@ -13,10 +13,16 @@ namespace EmployeeManagement.Api.Controllers {
       _unitOfWork = unitOfWork;
     }
 
+    private static EmployeeDto MapToDto(Models.Employee e) {
+      var dept = e.Department is null ? null : new DepartmentDto(e.Department.Id, e.Department.Name);
+      return new EmployeeDto(e.Id, e.FirstName, e.LastName, e.Email, e.DepartmentId, dept);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAllEmployees() {
       var employees = await _unitOfWork.Employees.GetEmployeesWithDepartmentsAsync();
-      return Ok(employees);
+      var dtos = employees.Select(MapToDto);
+      return Ok(dtos);
     }
 
     [HttpGet("{id}")]
@@ -25,7 +31,7 @@ namespace EmployeeManagement.Api.Controllers {
       if(employee == null) {
         return NotFound();
       }
-      return Ok(employee);
+      return Ok(MapToDto(employee));
     }
 
     [HttpPost]
@@ -45,13 +51,16 @@ namespace EmployeeManagement.Api.Controllers {
           FirstName = createEmployeeDto.FirstName,
           LastName = createEmployeeDto.LastName,
           Email = createEmployeeDto.Email,
-          DepartmentId = createEmployeeDto.DepartmentId
+          DepartmentId = createEmployeeDto.DepartmentId,
+          Department = department
         };
 
         await _unitOfWork.Employees.AddAsync(newEmployee);
         await _unitOfWork.CompleteAsync();
 
-        return CreatedAtAction(nameof(GetEmployeeById), new { id = newEmployee.Id }, newEmployee);
+        // Return DTO that contains Department with no Employees collection
+        var dto = MapToDto(newEmployee);
+        return CreatedAtAction(nameof(GetEmployeeById), new { id = dto.Id }, dto);
       } catch(DbUpdateException ex) {
         return StatusCode(500, $"An error occurred while creating the employee: {ex.Message}");
       }
@@ -76,6 +85,7 @@ namespace EmployeeManagement.Api.Controllers {
             return BadRequest($"Department with ID {updateEmployeeDto.DepartmentId} does not exist.");
           }
           existing.DepartmentId = updateEmployeeDto.DepartmentId;
+          existing.Department = department;
         }
 
         existing.FirstName = updateEmployeeDto.FirstName;

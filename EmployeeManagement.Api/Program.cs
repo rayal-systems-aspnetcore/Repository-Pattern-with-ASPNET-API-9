@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
-using EmployeeManagement.Api.Data;
 using EmployeeManagement.Api.Core.Interfaces;
+using EmployeeManagement.Api.Data;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +13,14 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-builder.Services.AddControllers();
+// Configure JSON options to avoid object cycle errors when serializing navigation properties
+builder.Services.AddControllers()
+  .AddJsonOptions(options => {
+    // Ignore cycles rather than throwing an exception.
+    // Alternative: ReferenceHandler.Preserve will emit $id/$ref metadata if you need reference preservation.
+    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    options.JsonSerializerOptions.MaxDepth = 64;
+  });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(); // Swashbuckle
 
